@@ -411,13 +411,10 @@
 
     /* ── BOTTOM STRIP ───────────────────────────────────── */
     .bottom-strip {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
       border-top: 1px solid var(--border);
       background: var(--bg1);
     }
     .strip-panel { padding: 12px 16px; }
-    .strip-panel + .strip-panel { border-left: 1px solid var(--border); }
     .strip-panel h3 {
       font-size: 11px;
       font-weight: 600;
@@ -434,6 +431,198 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg0); }
     ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
+
+    /* ── MOTION CONTROL PANEL ───────────────────────────── */
+    .motion-panel {
+      display: none; /* shown after G-code loaded */
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-top: 2px;
+    }
+    .motion-panel.visible { display: block; }
+
+    /* Transport bar */
+    .transport-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 14px;
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+    }
+    .transport-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.12s;
+      flex-shrink: 0;
+    }
+    .transport-btn:hover { border-color: var(--green); color: var(--green); }
+    .transport-btn.t-play  { background: rgba(57,255,132,0.12); border-color: var(--green); color: var(--green); }
+    .transport-btn.t-play:hover  { background: var(--green); color: #000; }
+    .transport-btn.t-pause { background: rgba(255,179,71,0.12); border-color: var(--amber); color: var(--amber); }
+    .transport-btn.t-pause:hover { background: var(--amber); color: #000; }
+    .transport-btn.t-stop  { background: rgba(255,63,91,0.12); border-color: var(--red); color: var(--red); }
+    .transport-btn.t-stop:hover  { background: var(--red); color: #fff; }
+    .transport-btn.t-step  { background: var(--bg3); }
+    .transport-btn:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+
+    .transport-divider {
+      width: 1px; height: 24px;
+      background: var(--border);
+      margin: 0 2px;
+    }
+
+    /* Toggle pills */
+    .toggle-pill {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: all 0.12s;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .toggle-pill .pill-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.12s;
+    }
+    .toggle-pill.on { border-color: var(--green); color: var(--green); }
+    .toggle-pill.on .pill-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .toggle-pill.dry-on { border-color: var(--blue); color: var(--blue); }
+    .toggle-pill.dry-on .pill-dot { background: var(--blue); box-shadow: 0 0 6px var(--blue); }
+
+    .transport-spacer { flex: 1; }
+
+    /* Run state badge */
+    .run-state-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      letter-spacing: 0.1em;
+      background: var(--bg1);
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    .run-state-badge.state-idle    { color: var(--muted); }
+    .run-state-badge.state-running { border-color: var(--green); color: var(--green); background: rgba(57,255,132,0.08); }
+    .run-state-badge.state-paused  { border-color: var(--amber); color: var(--amber); background: rgba(255,179,71,0.08); }
+    .run-state-badge.state-done    { border-color: var(--blue);  color: var(--blue);  background: rgba(77,166,255,0.08); }
+
+    /* Progress section */
+    .motion-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+
+    .progress-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .progress-track {
+      flex: 1;
+      height: 6px;
+      background: var(--bg1);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      cursor: pointer;
+      position: relative;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green), var(--green2));
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+    .progress-fill.paused { background: linear-gradient(90deg, var(--amber), #e09a30); }
+    .progress-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      min-width: 70px;
+      text-align: right;
+    }
+
+    /* Speed & feedrate sliders */
+    .slider-row {
+      display: grid;
+      grid-template-columns: 90px 1fr 44px;
+      align-items: center;
+      gap: 8px;
+    }
+    .slider-row label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .slider-row .slider-val {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--green);
+      text-align: right;
+    }
+    input[type=range].ctrl-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--bg1);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range].ctrl-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px rgba(57,255,132,0.5);
+      cursor: pointer;
+      transition: box-shadow 0.1s;
+    }
+    input[type=range].ctrl-slider:hover::-webkit-slider-thumb {
+      box-shadow: 0 0 12px rgba(57,255,132,0.8);
+    }
+    input[type=range].ctrl-slider.amber-slider::-webkit-slider-thumb {
+      background: var(--amber);
+      box-shadow: 0 0 6px rgba(255,179,71,0.5);
+    }
+
+    /* Current move info */
+    .move-info {
+      background: var(--bg1);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      min-height: 36px;
+      line-height: 1.8;
+      transition: border-color 0.2s;
+    }
+    .move-info.active { border-color: rgba(57,255,132,0.3); }
+    .move-info .mi-type { color: var(--amber); margin-right: 6px; letter-spacing: 0.08em; }
+    .move-info .mi-coord { color: var(--text); margin-right: 8px; }
+    .move-info .mi-feed { color: var(--blue); }
   </style>
 </head>
 <body>
@@ -606,11 +795,69 @@ G0 Z5"></textarea>
         </div>
 
         <div class="action-row">
-          <button class="btn danger" onclick="runGCode()">⚡ Run Program</button>
           <button class="btn amber" onclick="clearToolpath()">✕ Clear Path</button>
         </div>
 
         <div class="info-bar" id="gcodeInfo">No file loaded.</div>
+      </div>
+    </div>
+
+    <!-- MOTION CONTROL — revealed after G-code is loaded -->
+    <div class="motion-panel" id="motionPanel">
+      <div class="panel-header">
+        <span>Motion Control</span>
+        <span class="run-state-badge state-idle" id="runStateBadge">IDLE</span>
+      </div>
+
+      <!-- Transport -->
+      <div class="transport-bar">
+        <button class="transport-btn t-play"     id="btnPlay"     onclick="motionPlay()"     title="Run / Resume (Space)">▶</button>
+        <button class="transport-btn t-pause"    id="btnPause"    onclick="motionPause()"    title="Pause (Space)"        disabled>⏸</button>
+        <button class="transport-btn t-stop"     id="btnStop"     onclick="motionStop()"     title="Stop &amp; Reset (Esc)" disabled>■</button>
+        <div class="transport-divider"></div>
+        <button class="transport-btn t-step"     id="btnStepBack" onclick="motionStepBack()" title="Step back one command"  disabled>⏮</button>
+        <button class="transport-btn t-step"     id="btnStepFwd"  onclick="motionStepFwd()"  title="Step forward one command">⏭</button>
+        <div class="transport-divider"></div>
+        <div class="toggle-pill" id="pillLoop" onclick="toggleLoop()" title="Loop program continuously">
+          <div class="pill-dot"></div>LOOP
+        </div>
+        <div class="toggle-pill" id="pillDry" onclick="toggleDryRun()" title="Animate without moving machine">
+          <div class="pill-dot"></div>DRY RUN
+        </div>
+        <div class="transport-spacer"></div>
+      </div>
+
+      <div class="motion-body">
+
+        <!-- Progress bar -->
+        <div class="progress-row">
+          <div class="progress-track" id="progressTrack" onclick="seekToClick(event)" title="Click to seek to position">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-label" id="progressLabel">0 / 0</div>
+        </div>
+
+        <!-- Simulation speed -->
+        <div class="slider-row">
+          <label>SIM SPEED</label>
+          <input type="range" class="ctrl-slider" id="speedSlider"
+            min="1" max="100" value="33"
+            oninput="onSpeedSlider(this.value)">
+          <div class="slider-val" id="speedVal">1×</div>
+        </div>
+
+        <!-- Feedrate override -->
+        <div class="slider-row">
+          <label>FEED OVERRIDE</label>
+          <input type="range" class="ctrl-slider amber-slider" id="feedSlider"
+            min="10" max="200" value="100"
+            oninput="onFeedSlider(this.value)">
+          <div class="slider-val" id="feedVal" style="color:var(--amber)">100%</div>
+        </div>
+
+        <!-- Current move readout -->
+        <div class="move-info" id="moveInfo">Load a G-code file to begin.</div>
+
       </div>
     </div>
 
@@ -629,19 +876,8 @@ G0 Z5"></textarea>
       </div>
     </div>
 
-    <!-- BOTTOM STRIP -->
+    <!-- BOTTOM STRIP — Raspberry Pi Software Update only -->
     <div class="bottom-strip">
-      <div class="strip-panel">
-        <h3>⬡ FPGA Firmware Update</h3>
-        <div class="file-row">
-          <label class="file-label" id="fwLabel">
-            📦 Choose .bit / .mcs file
-            <input type="file" id="firmwareFile" accept=".bit,.mcs" onchange="fileChosen(this,'fwLabel')">
-          </label>
-          <button class="btn" onclick="uploadFirmware()">Flash FPGA</button>
-        </div>
-        <div class="info-bar" id="firmwareInfo">Ready.</div>
-      </div>
       <div class="strip-panel">
         <h3>🔄 Raspberry Pi Software Update</h3>
         <div class="file-row">
@@ -767,6 +1003,7 @@ function goHome(axes) {
    ========================================================= */
 function resetSimulation() {
   stopJog();
+  motionStop();
   for (const ax of activeAxes) simPos[ax] = 0;
   updateDisplay(simPos, activeAxes);
   clearToolpath();
@@ -791,7 +1028,6 @@ function showTab(tab) {
    ========================================================= */
 function fileChosen(input, labelId) {
   const label = document.getElementById(labelId);
-  const icon  = label.querySelector('input');  // keep input
   if (input.files.length) {
     label.childNodes[0].textContent = '✓ ' + input.files[0].name + ' ';
   }
@@ -800,12 +1036,11 @@ function fileChosen(input, labelId) {
 /* =========================================================
    G-CODE PARSING  (pure JS — mirrors backend parser)
    Supports: G0 G1 G00 G01  coords X Y Z A B F
-   A/B are passed through to position and to display.
    ========================================================= */
 function parseGCode(text) {
   const lines    = text.split('\n');
-  const toolpath = [];   // { from, to, type }
-  const commands = [];   // { type, target, feedrate }
+  const toolpath = [];
+  const commands = [];
   const pos = { X: 0, Y: 0, Z: 0, A: 0, B: 0 };
 
   for (let raw of lines) {
@@ -829,7 +1064,6 @@ function parseGCode(text) {
 
     const newPos = { ...pos, ...coords };
 
-    // Only log motion segments (not F-only lines)
     const moved = ['X','Y','Z','A','B'].some(a => coords[a] !== undefined);
     if (moved) {
       toolpath.push({
@@ -850,69 +1084,295 @@ function parseGCode(text) {
   return { toolpath, commands };
 }
 
-/* ── GCODE UPLOAD (file) ─────────────────────────────────── */
+/* =========================================================
+   G-CODE LOAD
+   ========================================================= */
 let parsedCommands = [];
+let parsedToolpath = [];
+
+function onGCodeLoaded(result, sourceName) {
+  parsedCommands = result.commands;
+  parsedToolpath = result.toolpath;
+
+  setInfo('gcodeInfo', `✓ ${sourceName} — ${result.commands.length} motion commands`, 'ok');
+  renderToolpath(result.toolpath);
+
+  // Reset motion engine to the new program
+  motionReset();
+  document.getElementById('motionPanel').classList.add('visible');
+  updateMotionUI();
+  setMoveInfo(null);
+  document.getElementById('moveInfo').textContent = `${result.commands.length} commands ready. Press ▶ to run.`;
+}
 
 async function uploadGCode() {
   const fileInput = document.getElementById('gcodeFile');
   if (!fileInput.files.length) { alert('Choose a file first.'); return; }
-
-  const text    = await fileInput.files[0].text();
-  const result  = parseGCode(text);
-  parsedCommands = result.commands;
-
-  setInfo('gcodeInfo', `✓ ${fileInput.files[0].name} — ${result.commands.length} motion commands`, 'ok');
-  renderToolpath(result.toolpath);
-}
-
-/* ── GCODE PREVIEW (editor) ──────────────────────────────── */
-async function previewFromEditor() {
-  const text   = document.getElementById('gcodeEditor').value.trim();
-  if (!text)   { alert('Enter G-code first.'); return; }
-
+  const text   = await fileInput.files[0].text();
   const result = parseGCode(text);
-  parsedCommands = result.commands;
-
-  setInfo('gcodeInfo', `✓ Editor — ${result.commands.length} motion commands`, 'ok');
-  renderToolpath(result.toolpath);
+  onGCodeLoaded(result, fileInput.files[0].name);
 }
 
-/* ── RUN GCODE (simulate) ────────────────────────────────── */
-async function runGCode() {
-  // Make sure we have fresh commands
-  const editorActive = document.getElementById('editorTab').style.display !== 'none';
-  if (editorActive) {
-    const text = document.getElementById('gcodeEditor').value.trim();
-    if (text) {
-      const r = parseGCode(text);
-      parsedCommands = r.commands;
-    }
-  }
-
-  if (!parsedCommands.length) { alert('Load or enter G-code first.'); return; }
-
-  setInfo('gcodeInfo', `▶ Running ${parsedCommands.length} commands…`, '');
-
-  // Animate through commands with a small delay so UI updates visibly
-  let i = 0;
-  function step() {
-    if (i >= parsedCommands.length) {
-      setInfo('gcodeInfo', `✓ Program complete — ${parsedCommands.length} commands executed`, 'ok');
-      return;
-    }
-    const cmd = parsedCommands[i++];
-    if (cmd.type === 'linear_move') {
-      const changed = [];
-      for (const ax of activeAxes) {
-        if (cmd.target[ax] !== undefined && Math.abs(cmd.target[ax] - simPos[ax]) > 0.0001) changed.push(ax);
-        if (cmd.target[ax] !== undefined) simPos[ax] = cmd.target[ax];
-      }
-      updateDisplay(simPos, changed);
-    }
-    setTimeout(step, 30);  // 30 ms between moves — adjust as needed
-  }
-  step();
+async function previewFromEditor() {
+  const text = document.getElementById('gcodeEditor').value.trim();
+  if (!text) { alert('Enter G-code first.'); return; }
+  const result = parseGCode(text);
+  onGCodeLoaded(result, 'Editor');
 }
+
+/* =========================================================
+   MOTION ENGINE
+   States: idle | running | paused | done
+   ========================================================= */
+const MOTION = {
+  state:          'idle',   // idle | running | paused | done
+  cursor:         0,        // index of next command to execute
+  timer:          null,     // setTimeout handle
+  loopEnabled:    false,
+  dryRunEnabled:  false,
+  speedMultiplier: 1.0,     // 0.1 – 20
+  feedOverride:    1.0,     // 0.1 – 2.0  (50%–200%)
+};
+
+/* Slider → speed mapping (non-linear: more control in low range) */
+function sliderToSpeed(v) {
+  // v: 1–100  →  speed: 0.1–20×  (quadratic)
+  return parseFloat((0.1 + (v / 100) ** 2 * 19.9).toFixed(2));
+}
+
+function onSpeedSlider(v) {
+  MOTION.speedMultiplier = sliderToSpeed(v);
+  document.getElementById('speedVal').textContent = MOTION.speedMultiplier + '×';
+}
+
+function onFeedSlider(v) {
+  MOTION.feedOverride = v / 100;
+  document.getElementById('feedVal').textContent = v + '%';
+}
+
+/* Compute delay for the current command */
+function getDelay(cmd) {
+  // Base delay is 30 ms at 1× speed; rapid moves are faster
+  const isRapid = parsedToolpath[MOTION.cursor]?.type === 'rapid';
+  const base = isRapid ? 15 : Math.max(5, 30 / MOTION.feedOverride);
+  return Math.max(2, Math.round(base / MOTION.speedMultiplier));
+}
+
+/* ── STATE BADGE ──────────────────────────────────────────── */
+function setRunState(state) {
+  MOTION.state = state;
+  const badge = document.getElementById('runStateBadge');
+  const labels = { idle: 'IDLE', running: 'RUNNING', paused: 'PAUSED', done: 'DONE' };
+  badge.textContent = labels[state] ?? state.toUpperCase();
+  badge.className = `run-state-badge state-${state}`;
+}
+
+/* ── PROGRESS ────────────────────────────────────────────── */
+function updateProgress() {
+  const total  = parsedCommands.length;
+  const cursor = MOTION.cursor;
+  const pct    = total ? (cursor / total) * 100 : 0;
+
+  const fill  = document.getElementById('progressFill');
+  fill.style.width = pct + '%';
+  fill.className = 'progress-fill' + (MOTION.state === 'paused' ? ' paused' : '');
+  document.getElementById('progressLabel').textContent = `${cursor} / ${total}`;
+}
+
+/* ── MOVE INFO ───────────────────────────────────────────── */
+function setMoveInfo(cmd) {
+  const el = document.getElementById('moveInfo');
+  if (!cmd) { el.className = 'move-info'; return; }
+
+  const seg  = parsedToolpath[MOTION.cursor] ?? {};
+  const kind = seg.type === 'rapid' ? 'RAPID' : 'FEED';
+  const tgt  = cmd.target ?? {};
+  const coordStr = Object.entries(tgt)
+    .filter(([,v]) => v !== undefined)
+    .map(([k,v]) => `<span class="mi-coord">${k}${v.toFixed(3)}</span>`)
+    .join('');
+  const feed = ((cmd.feedrate ?? 100) * MOTION.feedOverride).toFixed(0);
+
+  el.className = 'move-info active';
+  el.innerHTML =
+    `<span class="mi-type">${kind}</span>${coordStr}` +
+    `<span class="mi-feed">  F${feed}</span>` +
+    `<span style="color:var(--muted)">  [${MOTION.cursor + 1}/${parsedCommands.length}]</span>`;
+}
+
+/* ── EXECUTE ONE STEP ─────────────────────────────────────── */
+function executeStep() {
+  if (MOTION.state !== 'running') return;
+  if (MOTION.cursor >= parsedCommands.length) {
+    if (MOTION.loopEnabled) {
+      MOTION.cursor = 0;
+      scheduleStep();
+    } else {
+      setRunState('done');
+      updateMotionUI();
+      setInfo('gcodeInfo', `✓ Program complete — ${parsedCommands.length} commands`, 'ok');
+      document.getElementById('moveInfo').textContent = 'Program complete.';
+      document.getElementById('moveInfo').className = 'move-info';
+    }
+    return;
+  }
+
+  const cmd = parsedCommands[MOTION.cursor];
+  setMoveInfo(cmd);
+
+  if (!MOTION.dryRunEnabled && cmd.type === 'linear_move') {
+    const changed = [];
+    for (const ax of activeAxes) {
+      if (cmd.target[ax] !== undefined && Math.abs(cmd.target[ax] - simPos[ax]) > 0.0001) changed.push(ax);
+      if (cmd.target[ax] !== undefined) simPos[ax] = cmd.target[ax];
+    }
+    updateDisplay(simPos, changed);
+  }
+
+  MOTION.cursor++;
+  updateProgress();
+  scheduleStep();
+}
+
+function scheduleStep() {
+  if (MOTION.state !== 'running') return;
+  const cmd = parsedCommands[MOTION.cursor] ?? parsedCommands[MOTION.cursor - 1];
+  MOTION.timer = setTimeout(executeStep, getDelay(cmd));
+}
+
+/* ── TRANSPORT CONTROLS ──────────────────────────────────── */
+function motionPlay() {
+  if (!parsedCommands.length) { alert('Load G-code first.'); return; }
+  if (MOTION.state === 'done') motionReset();
+  setRunState('running');
+  updateMotionUI();
+  scheduleStep();
+}
+
+function motionPause() {
+  if (MOTION.state !== 'running') return;
+  clearTimeout(MOTION.timer);
+  MOTION.timer = null;
+  setRunState('paused');
+  updateMotionUI();
+  const fill = document.getElementById('progressFill');
+  fill.classList.add('paused');
+}
+
+function motionStop() {
+  clearTimeout(MOTION.timer);
+  MOTION.timer = null;
+  motionReset();
+  setRunState('idle');
+  updateMotionUI();
+  document.getElementById('moveInfo').textContent = 'Stopped.';
+  document.getElementById('moveInfo').className = 'move-info';
+  setInfo('gcodeInfo', `${parsedCommands.length} commands ready.`, 'ok');
+}
+
+function motionReset() {
+  clearTimeout(MOTION.timer);
+  MOTION.timer  = null;
+  MOTION.cursor = 0;
+  updateProgress();
+}
+
+/* ── STEP CONTROLS ───────────────────────────────────────── */
+function motionStepFwd() {
+  if (!parsedCommands.length) return;
+  if (MOTION.state === 'running') motionPause();
+  if (MOTION.state === 'done')    return;
+  if (MOTION.cursor >= parsedCommands.length) return;
+  if (MOTION.state === 'idle' || MOTION.state === 'paused') setRunState('paused');
+
+  const cmd = parsedCommands[MOTION.cursor];
+  setMoveInfo(cmd);
+  if (!MOTION.dryRunEnabled && cmd.type === 'linear_move') {
+    const changed = [];
+    for (const ax of activeAxes) {
+      if (cmd.target[ax] !== undefined && Math.abs(cmd.target[ax] - simPos[ax]) > 0.0001) changed.push(ax);
+      if (cmd.target[ax] !== undefined) simPos[ax] = cmd.target[ax];
+    }
+    updateDisplay(simPos, changed);
+  }
+  MOTION.cursor++;
+  updateProgress();
+  updateMotionUI();
+
+  if (MOTION.cursor >= parsedCommands.length) {
+    setRunState('done');
+    document.getElementById('moveInfo').textContent = 'Program complete.';
+    document.getElementById('moveInfo').className = 'move-info';
+  }
+}
+
+function motionStepBack() {
+  if (!parsedCommands.length) return;
+  if (MOTION.state === 'running') motionPause();
+  if (MOTION.cursor <= 0) return;
+  MOTION.cursor--;
+  updateProgress();
+  setMoveInfo(parsedCommands[MOTION.cursor]);
+  if (MOTION.state === 'done') setRunState('paused');
+  updateMotionUI();
+}
+
+/* ── SEEK (click progress bar) ───────────────────────────── */
+function seekToClick(e) {
+  if (!parsedCommands.length) return;
+  const rect  = document.getElementById('progressTrack').getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const target = Math.floor(ratio * parsedCommands.length);
+
+  const wasRunning = MOTION.state === 'running';
+  clearTimeout(MOTION.timer);
+  MOTION.cursor = target;
+  updateProgress();
+
+  if (target < parsedCommands.length) {
+    setMoveInfo(parsedCommands[target]);
+    if (MOTION.state === 'done') setRunState('paused');
+  }
+
+  if (wasRunning) scheduleStep();
+  updateMotionUI();
+}
+
+/* ── TOGGLES ─────────────────────────────────────────────── */
+function toggleLoop() {
+  MOTION.loopEnabled = !MOTION.loopEnabled;
+  document.getElementById('pillLoop').classList.toggle('on', MOTION.loopEnabled);
+}
+
+function toggleDryRun() {
+  MOTION.dryRunEnabled = !MOTION.dryRunEnabled;
+  document.getElementById('pillDry').classList.toggle('dry-on', MOTION.dryRunEnabled);
+}
+
+/* ── UPDATE BUTTON STATES ────────────────────────────────── */
+function updateMotionUI() {
+  const s = MOTION.state;
+  const hasProgram = parsedCommands.length > 0;
+
+  document.getElementById('btnPlay').disabled     = !hasProgram || s === 'running';
+  document.getElementById('btnPause').disabled    = s !== 'running';
+  document.getElementById('btnStop').disabled     = s === 'idle';
+  document.getElementById('btnStepBack').disabled = !hasProgram || MOTION.cursor === 0;
+  document.getElementById('btnStepFwd').disabled  = !hasProgram || MOTION.cursor >= parsedCommands.length;
+}
+
+/* ── KEYBOARD SHORTCUTS ──────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (MOTION.state === 'running') motionPause();
+    else motionPlay();
+  }
+  if (e.code === 'Escape')      motionStop();
+  if (e.code === 'ArrowRight')  motionStepFwd();
+  if (e.code === 'ArrowLeft')   motionStepBack();
+});
 
 /* =========================================================
    3D PREVIEW — Three.js
@@ -964,8 +1424,7 @@ function initPreview() {
   jogTrailGroup = new THREE.Group();
   scene.add(jogTrailGroup);
 
-  // Tool indicator — asymmetric so A-axis rotation is clearly visible:
-  // vertical spindle shaft + a horizontal arm offset to one side
+  // Tool indicator — asymmetric so A-axis rotation is clearly visible
   const toolGroup = new THREE.Group();
   const toolMat   = new THREE.MeshPhongMaterial({ color: 0xffff00, emissive: 0x665500 });
   const armMat    = new THREE.MeshPhongMaterial({ color: 0xff6600, emissive: 0x441100 });
@@ -984,11 +1443,11 @@ function initPreview() {
   // Horizontal arm — offset in X so rotation around Y is obvious
   const armGeo = new THREE.CylinderGeometry(0.4, 0.4, 10, 8);
   const arm    = new THREE.Mesh(armGeo, armMat);
-  arm.rotation.z = Math.PI / 2;   // rotate cylinder to lie along X
-  arm.position.set(5, 4, 0);      // offset from spindle center
+  arm.rotation.z = Math.PI / 2;
+  arm.position.set(5, 4, 0);
   toolGroup.add(arm);
 
-  // Small ball at arm tip — easy visual anchor for rotation tracking
+  // Small ball at arm tip
   const ballGeo = new THREE.SphereGeometry(1.4, 12, 12);
   const ball    = new THREE.Mesh(ballGeo, armMat);
   ball.position.set(10, 4, 0);
@@ -1037,7 +1496,6 @@ function updateToolPosition(pos) {
   // Three.js Y-up mapping: CNC X→x, CNC Y→z, CNC Z→y
   toolMesh.position.set(pos.X, pos.Z, pos.Y);
   // A axis = rotation around the CNC Z axis (spindle axis = Three.js Y axis)
-  // Convert degrees to radians.
   toolMesh.rotation.y = (pos.A ?? 0) * (Math.PI / 180);
 }
 
@@ -1074,7 +1532,7 @@ function animate() {
 function onMouseDown(e) {
   isOrbit = true;
   orbitStart = { x: e.clientX, y: e.clientY, rx: orbitRot.x, ry: orbitRot.y, px: panOffset.x, py: panOffset.y };
-  e._button = e.button;
+  orbitStart._button = e.button;
 }
 function onMouseMove(e) {
   if (!isOrbit || !orbitStart) return;
@@ -1096,23 +1554,8 @@ function onWheel(e) {
 }
 
 /* =========================================================
-   FIRMWARE / SOFTWARE UPLOADS  (delegate to backend)
+   SOFTWARE UPDATE  (Raspberry Pi — delegate to backend)
    ========================================================= */
-async function uploadFirmware() {
-  const fi = document.getElementById('firmwareFile');
-  if (!fi.files.length) { alert('Choose a firmware file.'); return; }
-  setInfo('firmwareInfo', 'Flashing…', '');
-  try {
-    const fd = new FormData();
-    fd.append('file', fi.files[0]);
-    const r  = await fetch('/api/upload/firmware', { method: 'POST', body: fd });
-    const j  = await r.json();
-    setInfo('firmwareInfo', j.message ?? j.error, j.error ? 'err' : 'ok');
-  } catch(e) {
-    setInfo('firmwareInfo', '⚠ Backend unreachable (simulation mode)', 'err');
-  }
-}
-
 async function uploadSoftware() {
   const fi = document.getElementById('softwareFile');
   if (!fi.files.length) { alert('Choose an update file.'); return; }
@@ -1160,7 +1603,6 @@ try {
       }
 
       if (data.position) {
-        // Only update axes present in the response (active axes only)
         Object.assign(simPos, data.position);
         updateDisplay(simPos, Object.keys(data.position));
       }
@@ -1177,9 +1619,6 @@ try {
    AXIS COUNT SELECTION
    Source of truth: backend via POST /api/config/axes.
    Fallback: local-only (simulation mode) if backend unreachable.
-
-   ALL_AXES: canonical order used for display.
-   activeAxes: the current subset — always set via applyAxisConfig().
    ========================================================= */
 const ALL_AXES = ['X', 'Y', 'Z', 'A'];
 
@@ -1191,8 +1630,6 @@ const AXIS_CONFIGS = {
 
 let activeAxes = ['X', 'Y', 'Z', 'A'];  // default until backend responds
 
-/* Apply a config object {count, axes} to the UI.
-   Called from: backend response, WS config message, or local fallback. */
 function applyAxisConfig(config) {
   activeAxes = config.axes;
   const count = config.count;
@@ -1207,14 +1644,12 @@ function applyAxisConfig(config) {
     const ax = card.dataset.axis;
     const visible = activeAxes.includes(ax);
     card.style.display = visible ? '' : 'none';
-    // A card: spans 2 columns when count is odd (3 active axes = X,Y,Z row + A alone)
-    // Always span 2 for A since it's the last and sits on its own row when visible
     if (ax === 'A' && visible) {
       card.style.gridColumn = 'span 2';
     }
   });
 
-  // Show/hide jog sections (Z, A, B have data-axis-section wrappers)
+  // Show/hide jog sections
   document.querySelectorAll('[data-axis-section]').forEach(section => {
     section.style.display = activeAxes.includes(section.dataset.axisSection) ? '' : 'none';
   });
@@ -1229,8 +1664,6 @@ function applyAxisConfig(config) {
     `${count}-AXIS  [${activeAxes.join(' ')}]`;
 }
 
-/* Called by the header buttons.
-   Tries to POST to backend; falls back to local-only on failure. */
 async function setAxisCount(count) {
   stopJog();
 
@@ -1244,13 +1677,11 @@ async function setAxisCount(count) {
     if (!res.ok) {
       const err = await res.json();
       console.warn('Axis config rejected by backend:', err.error);
-      // Still apply locally so the UI stays usable in simulation mode
       applyAxisConfig({ count, axes: AXIS_CONFIGS[count] ?? ALL_AXES });
       return;
     }
 
     const data = await res.json();
-    // Backend returns {count, axes, position}
     applyAxisConfig({ count: data.count, axes: data.axes });
     if (data.position) {
       Object.assign(simPos, data.position);
@@ -1258,12 +1689,10 @@ async function setAxisCount(count) {
     }
 
   } catch (_) {
-    // Backend not reachable — simulation mode, apply locally
     applyAxisConfig({ count, axes: AXIS_CONFIGS[count] ?? ALL_AXES });
   }
 }
 
-/* Fetch config from backend on page load. */
 async function syncAxisConfigFromBackend() {
   try {
     const res = await fetch('/api/config/axes');
@@ -1271,14 +1700,13 @@ async function syncAxisConfigFromBackend() {
     const data = await res.json();
     applyAxisConfig({ count: data.count, axes: data.axes });
   } catch (_) {
-    // Backend offline — keep default 4-axis
     applyAxisConfig({ count: 4, axes: ALL_AXES });
   }
 }
 
 
 initPreview();
-syncAxisConfigFromBackend();  // GET /api/config/axes → applyAxisConfig(); falls back to 4-axis local
+syncAxisConfigFromBackend();
 updateDisplay(simPos);
 </script>
 </body>
