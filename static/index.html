@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CNC Control — Project #3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── TOKENS ─────────────────────────────────────────── */
+    :root {
+      --bg0: #0d0f11;
+      --bg1: #141618;
+      --bg2: #1c1f23;
+      --bg3: #242830;
+      --border: #2e3238;
+      --green:  #39ff84;
+      --green2: #1de97a;
+      --red:    #ff3f5b;
+      --amber:  #ffb347;
+      --blue:   #4da6ff;
+      --text:   #d4dae3;
+      --muted:  #6a737e;
+      --mono:   'Share Tech Mono', monospace;
+      --sans:   'Barlow', sans-serif;
+      --radius: 6px;
+    }
+
+    /* ── RESET ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg0);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    /* ── SCANLINE OVERLAY ───────────────────────────────── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.06) 3px,
+        rgba(0,0,0,0.06) 4px
+      );
+      z-index: 9999;
+    }
+
+    /* ── LAYOUT ─────────────────────────────────────────── */
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg1);
+    }
+    .app-header h1 {
+      font-family: var(--mono);
+      font-size: 16px;
+      color: var(--green);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    .header-status { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+    /* ── AXIS SELECTOR ──────────────────────────────────── */
+    .axis-selector {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+    .axis-selector label {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--mono);
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+    .axis-count-btn {
+      padding: 4px 10px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .axis-count-btn:hover { border-color: var(--green); color: var(--green); }
+    .axis-count-btn.active {
+      background: var(--green);
+      border-color: var(--green);
+      color: #000;
+      font-weight: 700;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 0;
+      height: calc(100vh - 49px);
+      overflow: hidden;
+    }
+    .sidebar {
+      border-right: 1px solid var(--border);
+      background: var(--bg1);
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .main {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* ── PANEL ──────────────────────────────────────────── */
+    .panel {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .panel-header .accent { color: var(--green); }
+    .panel-body { padding: 14px; }
+
+    /* ── POSITION DISPLAY ───────────────────────────────── */
+    .axes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .axis-card {
+      background: var(--bg1);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .axis-card.active {
+      border-color: var(--green);
+      box-shadow: 0 0 12px rgba(57,255,132,0.12);
+    }
+    .axis-card .axis-name {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+    }
+    .axis-card .axis-val {
+      font-family: var(--mono);
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--green);
+      line-height: 1.2;
+      transition: color 0.15s;
+    }
+    .axis-card .axis-unit {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .axis-card .flash-bar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--green);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.1s;
+    }
+    .axis-card.active .flash-bar { transform: scaleX(1); }
+
+    /* ── JOG CONTROLS ───────────────────────────────────── */
+    .step-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .step-row label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .step-presets { display: flex; gap: 4px; }
+    .step-btn {
+      padding: 4px 8px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .step-btn.active, .step-btn:hover { background: var(--green); color: #000; border-color: var(--green); }
+
+    input[type="number"].step-custom {
+      width: 70px;
+      padding: 4px 8px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--green);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .jog-section-label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    /* XY pad */
+    .xy-pad {
+      display: grid;
+      grid-template-columns: repeat(3, 52px);
+      grid-template-rows: repeat(3, 52px);
+      gap: 5px;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+    .jog-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.1s;
+      -webkit-user-select: none;
+    }
+    .jog-btn:hover  { background: #2a2f36; border-color: var(--green); color: var(--green); }
+    .jog-btn.pressed { background: var(--green); color: #000; border-color: var(--green); box-shadow: 0 0 12px rgba(57,255,132,0.4); }
+    .jog-btn.home-btn { font-size: 16px; }
+
+    .z-row, .rot-row {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .jog-btn.wide { width: 100px; height: 40px; font-size: 12px; }
+
+    /* ── BUTTONS ────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg3);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover   { background: #2a2f36; border-color: var(--green); color: var(--green); }
+    .btn.primary { background: var(--green); color: #000; border-color: var(--green); }
+    .btn.primary:hover { background: var(--green2); }
+    .btn.danger  { background: rgba(255,63,91,0.12); border-color: var(--red); color: var(--red); }
+    .btn.danger:hover  { background: var(--red); color: #fff; }
+    .btn.amber   { background: rgba(255,179,71,0.10); border-color: var(--amber); color: var(--amber); }
+    .btn.amber:hover   { background: var(--amber); color: #000; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── FILE INPUT ─────────────────────────────────────── */
+    .file-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+    .file-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--muted);
+      transition: all 0.15s;
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .file-label:hover { border-color: var(--blue); color: var(--blue); }
+    .file-label input[type=file] { display: none; }
+
+    /* ── TABS ───────────────────────────────────────────── */
+    .tabs { display: flex; border-bottom: 1px solid var(--border); }
+    .tab {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.15s;
+    }
+    .tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+    textarea {
+      width: 100%;
+      height: 160px;
+      background: var(--bg1);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: #7fff7f;
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 10px;
+      resize: vertical;
+      outline: none;
+      line-height: 1.6;
+    }
+    textarea:focus { border-color: var(--green); }
+
+    /* ── INFO BAR ───────────────────────────────────────── */
+    .info-bar {
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: var(--bg1);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      min-height: 28px;
+    }
+    .info-bar.ok  { border-color: rgba(57,255,132,0.4); color: var(--green); }
+    .info-bar.err { border-color: rgba(255,63,91,0.4); color: var(--red); }
+
+    /* ── 3D PREVIEW ─────────────────────────────────────── */
+    .preview-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #050608;
+    }
+    #preview {
+      width: 100%; height: 100%;
+    }
+    .preview-overlay {
+      position: absolute;
+      top: 12px; right: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+    .preview-badge {
+      background: rgba(13,15,17,0.85);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .preview-badge span { color: var(--text); }
+
+    /* ── BOTTOM STRIP ───────────────────────────────────── */
+    .bottom-strip {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-top: 1px solid var(--border);
+      background: var(--bg1);
+    }
+    .strip-panel { padding: 12px 16px; }
+    .strip-panel + .strip-panel { border-left: 1px solid var(--border); }
+    .strip-panel h3 {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    /* ── GCODE RESET SECTION ───────────────────────────── */
+    .action-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+    /* ── SCROLLBAR ──────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg0); }
+    ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="status-dot" id="connDot"></div>
+  <h1>⬡ CNC Control — Project #3</h1>
+  <div class="axis-selector">
+    <label>AXES:</label>
+    <button class="axis-count-btn" data-axes="2" onclick="setAxisCount(2)">2</button>
+    <button class="axis-count-btn" data-axes="3" onclick="setAxisCount(3)">3</button>
+    <button class="axis-count-btn active" data-axes="4" onclick="setAxisCount(4)">4</button>
+  </div>
+  <span class="header-status" id="headerStatus">SIMULATION MODE</span>
+</header>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar">
+
+    <!-- POSITION -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>Axis Positions</span>
+        <span class="accent" style="font-family:var(--mono)">mm / °</span>
+      </div>
+      <div class="panel-body">
+        <div class="axes-grid">
+          <div class="axis-card" id="card-X" data-axis="X">
+            <div class="axis-name">X — Linear</div>
+            <div class="axis-val" id="pos-X">0.000</div>
+            <div class="axis-unit">mm</div>
+            <div class="flash-bar"></div>
+          </div>
+          <div class="axis-card" id="card-Y" data-axis="Y">
+            <div class="axis-name">Y — Linear</div>
+            <div class="axis-val" id="pos-Y">0.000</div>
+            <div class="axis-unit">mm</div>
+            <div class="flash-bar"></div>
+          </div>
+          <div class="axis-card" id="card-Z" data-axis="Z">
+            <div class="axis-name">Z — Linear</div>
+            <div class="axis-val" id="pos-Z">0.000</div>
+            <div class="axis-unit">mm</div>
+            <div class="flash-bar"></div>
+          </div>
+          <div class="axis-card" id="card-A" data-axis="A" style="grid-column:span 2">
+            <div class="axis-name">A — Rotary</div>
+            <div class="axis-val" id="pos-A">0.000</div>
+            <div class="axis-unit">deg</div>
+            <div class="flash-bar"></div>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <button class="btn danger" style="width:100%" onclick="resetSimulation()">↺ Reset All Axes &amp; Simulation</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- JOGGING -->
+    <div class="panel">
+      <div class="panel-header"><span>Manual Jog</span></div>
+      <div class="panel-body">
+
+        <!-- Step size -->
+        <div class="step-row">
+          <label>Step:</label>
+          <div class="step-presets">
+            <button class="step-btn" data-step="0.1" onclick="setStep(0.1)">0.1</button>
+            <button class="step-btn active" data-step="1" onclick="setStep(1)">1</button>
+            <button class="step-btn" data-step="5" onclick="setStep(5)">5</button>
+            <button class="step-btn" data-step="10" onclick="setStep(10)">10</button>
+          </div>
+          <input type="number" class="step-custom" id="stepSize" value="1" step="0.1" min="0.01" oninput="stepSizeChanged(this.value)">
+        </div>
+
+        <!-- X-Y -->
+        <div class="jog-section-label">X / Y Plane</div>
+        <div class="xy-pad">
+          <!-- Row 1 -->
+          <div></div>
+          <button class="jog-btn"
+            id="jog-Y-pos"
+            onmousedown="startJog('Y',1)" onmouseup="stopJog()" onmouseleave="stopJog()"
+            ontouchstart="startJog('Y',1)" ontouchend="stopJog()">Y+</button>
+          <div></div>
+          <!-- Row 2 -->
+          <button class="jog-btn"
+            id="jog-X-neg"
+            onmousedown="startJog('X',-1)" onmouseup="stopJog()" onmouseleave="stopJog()"
+            ontouchstart="startJog('X',-1)" ontouchend="stopJog()">X−</button>
+          <button class="jog-btn home-btn" onclick="goHome('XY')" title="Go X=0, Y=0">⌂</button>
+          <button class="jog-btn"
+            id="jog-X-pos"
+            onmousedown="startJog('X',1)" onmouseup="stopJog()" onmouseleave="stopJog()"
+            ontouchstart="startJog('X',1)" ontouchend="stopJog()">X+</button>
+          <!-- Row 3 -->
+          <div></div>
+          <button class="jog-btn"
+            id="jog-Y-neg"
+            onmousedown="startJog('Y',-1)" onmouseup="stopJog()" onmouseleave="stopJog()"
+            ontouchstart="startJog('Y',-1)" ontouchend="stopJog()">Y−</button>
+          <div></div>
+        </div>
+
+        <!-- Z -->
+        <div data-axis-section="Z">
+          <div class="jog-section-label">Z Axis</div>
+          <div class="z-row">
+            <button class="jog-btn wide"
+              id="jog-Z-pos"
+              onmousedown="startJog('Z',1)" onmouseup="stopJog()" onmouseleave="stopJog()"
+              ontouchstart="startJog('Z',1)" ontouchend="stopJog()">Z+</button>
+            <button class="jog-btn wide"
+              id="jog-Z-neg"
+              onmousedown="startJog('Z',-1)" onmouseup="stopJog()" onmouseleave="stopJog()"
+              ontouchstart="startJog('Z',-1)" ontouchend="stopJog()">Z−</button>
+          </div>
+        </div>
+
+        <div data-axis-section="A">
+          <div class="jog-section-label">Rotary — A Axis</div>
+          <div class="rot-row">
+            <button class="jog-btn wide"
+              id="jog-A-pos"
+              onmousedown="startJog('A',1)" onmouseup="stopJog()" onmouseleave="stopJog()"
+              ontouchstart="startJog('A',1)" ontouchend="stopJog()">A+</button>
+            <button class="jog-btn wide"
+              id="jog-A-neg"
+              onmousedown="startJog('A',-1)" onmouseup="stopJog()" onmouseleave="stopJog()"
+              ontouchstart="startJog('A',-1)" ontouchend="stopJog()">A−</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- G-CODE -->
+    <div class="panel">
+      <div class="panel-header"><span>G-code</span></div>
+      <div class="tabs">
+        <div class="tab active" id="tab-upload" onclick="showTab('upload')">Upload File</div>
+        <div class="tab" id="tab-editor" onclick="showTab('editor')">Write Code</div>
+      </div>
+      <div class="panel-body">
+
+        <div id="uploadTab">
+          <div class="file-row">
+            <label class="file-label" id="gcodeFileLabel">
+              📂 Choose .gcode / .nc file
+              <input type="file" id="gcodeFile" accept=".gcode,.nc,.txt,.cnc" onchange="fileChosen(this,'gcodeFileLabel')">
+            </label>
+          </div>
+          <button class="btn primary" onclick="uploadGCode()">▶ Load &amp; Preview</button>
+        </div>
+
+        <div id="editorTab" style="display:none">
+          <textarea id="gcodeEditor" spellcheck="false" placeholder="; Enter G-code, e.g.:
+G0 X0 Y0 Z5
+G1 Z0 F100
+G1 X50 Y0
+G1 X50 Y50 A90
+G1 X0 Y50 A180
+G1 X0 Y0
+G0 Z5"></textarea>
+          <button class="btn primary" style="margin-top:6px" onclick="previewFromEditor()">▶ Preview</button>
+        </div>
+
+        <div class="action-row">
+          <button class="btn danger" onclick="runGCode()">⚡ Run Program</button>
+          <button class="btn amber" onclick="clearToolpath()">✕ Clear Path</button>
+        </div>
+
+        <div class="info-bar" id="gcodeInfo">No file loaded.</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ═══ MAIN ═══ -->
+  <main class="main">
+
+    <!-- 3D PREVIEW -->
+    <div class="preview-wrap">
+      <div id="preview"></div>
+      <div class="preview-overlay">
+        <div class="preview-badge">RAPID <span style="color:var(--green)">━━</span></div>
+        <div class="preview-badge">FEED &nbsp;<span style="color:var(--red)">━━</span></div>
+        <div class="preview-badge">JOG &nbsp;&nbsp;<span style="color:var(--amber)">━━</span></div>
+      </div>
+    </div>
+
+    <!-- BOTTOM STRIP -->
+    <div class="bottom-strip">
+      <div class="strip-panel">
+        <h3>⬡ FPGA Firmware Update</h3>
+        <div class="file-row">
+          <label class="file-label" id="fwLabel">
+            📦 Choose .bit / .mcs file
+            <input type="file" id="firmwareFile" accept=".bit,.mcs" onchange="fileChosen(this,'fwLabel')">
+          </label>
+          <button class="btn" onclick="uploadFirmware()">Flash FPGA</button>
+        </div>
+        <div class="info-bar" id="firmwareInfo">Ready.</div>
+      </div>
+      <div class="strip-panel">
+        <h3>🔄 Raspberry Pi Software Update</h3>
+        <div class="file-row">
+          <label class="file-label" id="swLabel">
+            📦 Choose update file
+            <input type="file" id="softwareFile" onchange="fileChosen(this,'swLabel')">
+          </label>
+          <button class="btn" onclick="uploadSoftware()">Update Pi</button>
+        </div>
+        <div class="info-bar" id="softwareInfo">Ready.</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- THREE.JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =========================================================
+   SIMULATION STATE
+   All position data lives here. Backend is authoritative in
+   production; in simulation mode, we update this directly.
+   ========================================================= */
+const simPos = { X: 0, Y: 0, Z: 0, A: 0 };
+
+/* ── UPDATE DISPLAY ──────────────────────────────────────── */
+function updateDisplay(pos, changedAxes = []) {
+  for (const ax of ['X','Y','Z','A']) {
+    const el   = document.getElementById('pos-' + ax);
+    const card = document.getElementById('card-' + ax);
+    if (!el || !card) continue;
+    el.textContent = (pos[ax] ?? 0).toFixed(3);
+    if (changedAxes.includes(ax)) {
+      card.classList.add('active');
+      setTimeout(() => card.classList.remove('active'), 400);
+    }
+  }
+  updateToolPosition(pos);
+}
+
+/* =========================================================
+   STEP SIZE
+   ========================================================= */
+let currentStep = 1.0;
+
+function setStep(v) {
+  currentStep = v;
+  document.getElementById('stepSize').value = v;
+  document.querySelectorAll('.step-btn').forEach(b => {
+    b.classList.toggle('active', parseFloat(b.dataset.step) === v);
+  });
+}
+
+function stepSizeChanged(v) {
+  const n = parseFloat(v);
+  if (!isNaN(n) && n > 0) {
+    currentStep = n;
+    document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('active'));
+  }
+}
+
+/* =========================================================
+   JOGGING
+   Hold-to-jog: fires immediately, then every INTERVAL ms.
+   Visual: button gets "pressed" class; 3D tool moves.
+   ========================================================= */
+const JOG_INTERVAL_MS = 80;
+let jogTimer = null;
+let activeJogBtn = null;
+
+function startJog(axis, direction) {
+  stopJog(); // safety: clear any lingering timer
+
+  // Immediately apply one step
+  applyJogStep(axis, direction);
+
+  // Button highlight
+  const btnId = `jog-${axis}-${direction > 0 ? 'pos' : 'neg'}`;
+  activeJogBtn = document.getElementById(btnId);
+  if (activeJogBtn) activeJogBtn.classList.add('pressed');
+
+  // Continue while held
+  jogTimer = setInterval(() => applyJogStep(axis, direction), JOG_INTERVAL_MS);
+}
+
+function stopJog() {
+  if (jogTimer) { clearInterval(jogTimer); jogTimer = null; }
+  if (activeJogBtn) { activeJogBtn.classList.remove('pressed'); activeJogBtn = null; }
+}
+
+function applyJogStep(axis, direction) {
+  const delta = currentStep * direction;
+  simPos[axis] = parseFloat((simPos[axis] + delta).toFixed(4));
+
+  // Update displays
+  updateDisplay(simPos, [axis]);
+
+  // Add jog trail in 3D (amber)
+  addJogTrailPoint(simPos);
+
+  // In production, also POST to /api/jog:
+  // fetch('/api/jog', { method:'POST', headers:{'Content-Type':'application/json'},
+  //   body: JSON.stringify({ axis, distance: delta }) });
+}
+
+/* Stop jog if mouse leaves window entirely */
+document.addEventListener('mouseup', stopJog);
+
+/* ── HOME ──────────────────────────────────────────────── */
+function goHome(axes) {
+  stopJog();
+  const changed = [];
+  if (axes.includes('X')) { simPos.X = 0; changed.push('X'); }
+  if (axes.includes('Y')) { simPos.Y = 0; changed.push('Y'); }
+  if (axes.includes('Z')) { simPos.Z = 0; changed.push('Z'); }
+  updateDisplay(simPos, changed);
+}
+
+/* =========================================================
+   RESET SIMULATION
+   Zeroes position, clears 3D toolpath and jog trail.
+   ========================================================= */
+function resetSimulation() {
+  stopJog();
+  for (const ax of activeAxes) simPos[ax] = 0;
+  updateDisplay(simPos, activeAxes);
+  clearToolpath();
+  clearJogTrail();
+  document.getElementById('gcodeInfo').textContent = 'Simulation reset.';
+  document.getElementById('gcodeInfo').className = 'info-bar';
+}
+
+/* =========================================================
+   TABS
+   ========================================================= */
+function showTab(tab) {
+  const isUpload = tab === 'upload';
+  document.getElementById('uploadTab').style.display = isUpload ? 'block' : 'none';
+  document.getElementById('editorTab').style.display = isUpload ? 'none' : 'block';
+  document.getElementById('tab-upload').classList.toggle('active', isUpload);
+  document.getElementById('tab-editor').classList.toggle('active', !isUpload);
+}
+
+/* =========================================================
+   FILE CHOSEN — update label text
+   ========================================================= */
+function fileChosen(input, labelId) {
+  const label = document.getElementById(labelId);
+  const icon  = label.querySelector('input');  // keep input
+  if (input.files.length) {
+    label.childNodes[0].textContent = '✓ ' + input.files[0].name + ' ';
+  }
+}
+
+/* =========================================================
+   G-CODE PARSING  (pure JS — mirrors backend parser)
+   Supports: G0 G1 G00 G01  coords X Y Z A B F
+   A/B are passed through to position and to display.
+   ========================================================= */
+function parseGCode(text) {
+  const lines    = text.split('\n');
+  const toolpath = [];   // { from, to, type }
+  const commands = [];   // { type, target, feedrate }
+  const pos = { X: 0, Y: 0, Z: 0, A: 0, B: 0 };
+
+  for (let raw of lines) {
+    const line = raw.split(';')[0].trim().split('(')[0].trim();
+    if (!line) continue;
+
+    const parts = line.split(/\s+/);
+    if (!parts.length) continue;
+
+    const cmd = parts[0].toUpperCase();
+    if (!['G0','G1','G00','G01'].includes(cmd)) continue;
+
+    const coords = {};
+    for (let i = 1; i < parts.length; i++) {
+      const letter = parts[i][0].toUpperCase();
+      const value  = parseFloat(parts[i].slice(1));
+      if (['X','Y','Z','A','B','F'].includes(letter) && !isNaN(value)) {
+        coords[letter] = value;
+      }
+    }
+
+    const newPos = { ...pos, ...coords };
+
+    // Only log motion segments (not F-only lines)
+    const moved = ['X','Y','Z','A','B'].some(a => coords[a] !== undefined);
+    if (moved) {
+      toolpath.push({
+        from: { ...pos },
+        to:   { ...newPos },
+        type: ['G0','G00'].includes(cmd) ? 'rapid' : 'feed'
+      });
+      commands.push({
+        type:     'linear_move',
+        target:   { ...newPos },
+        feedrate: coords.F ?? 100
+      });
+    }
+
+    Object.assign(pos, newPos);
+  }
+
+  return { toolpath, commands };
+}
+
+/* ── GCODE UPLOAD (file) ─────────────────────────────────── */
+let parsedCommands = [];
+
+async function uploadGCode() {
+  const fileInput = document.getElementById('gcodeFile');
+  if (!fileInput.files.length) { alert('Choose a file first.'); return; }
+
+  const text    = await fileInput.files[0].text();
+  const result  = parseGCode(text);
+  parsedCommands = result.commands;
+
+  setInfo('gcodeInfo', `✓ ${fileInput.files[0].name} — ${result.commands.length} motion commands`, 'ok');
+  renderToolpath(result.toolpath);
+}
+
+/* ── GCODE PREVIEW (editor) ──────────────────────────────── */
+async function previewFromEditor() {
+  const text   = document.getElementById('gcodeEditor').value.trim();
+  if (!text)   { alert('Enter G-code first.'); return; }
+
+  const result = parseGCode(text);
+  parsedCommands = result.commands;
+
+  setInfo('gcodeInfo', `✓ Editor — ${result.commands.length} motion commands`, 'ok');
+  renderToolpath(result.toolpath);
+}
+
+/* ── RUN GCODE (simulate) ────────────────────────────────── */
+async function runGCode() {
+  // Make sure we have fresh commands
+  const editorActive = document.getElementById('editorTab').style.display !== 'none';
+  if (editorActive) {
+    const text = document.getElementById('gcodeEditor').value.trim();
+    if (text) {
+      const r = parseGCode(text);
+      parsedCommands = r.commands;
+    }
+  }
+
+  if (!parsedCommands.length) { alert('Load or enter G-code first.'); return; }
+
+  setInfo('gcodeInfo', `▶ Running ${parsedCommands.length} commands…`, '');
+
+  // Animate through commands with a small delay so UI updates visibly
+  let i = 0;
+  function step() {
+    if (i >= parsedCommands.length) {
+      setInfo('gcodeInfo', `✓ Program complete — ${parsedCommands.length} commands executed`, 'ok');
+      return;
+    }
+    const cmd = parsedCommands[i++];
+    if (cmd.type === 'linear_move') {
+      const changed = [];
+      for (const ax of activeAxes) {
+        if (cmd.target[ax] !== undefined && Math.abs(cmd.target[ax] - simPos[ax]) > 0.0001) changed.push(ax);
+        if (cmd.target[ax] !== undefined) simPos[ax] = cmd.target[ax];
+      }
+      updateDisplay(simPos, changed);
+    }
+    setTimeout(step, 30);  // 30 ms between moves — adjust as needed
+  }
+  step();
+}
+
+/* =========================================================
+   3D PREVIEW — Three.js
+   ========================================================= */
+let scene, camera, renderer;
+let toolpathGroup, jogTrailGroup, toolMesh;
+let isOrbit = false, orbitStart = null, orbitRot = { x: Math.PI / 4, y: Math.PI / 4 };
+let orbitDist = 180;
+let panStart = null, panOffset = { x: 0, y: 0 };
+
+function initPreview() {
+  const container = document.getElementById('preview');
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x050608);
+  scene.fog = new THREE.Fog(0x050608, 300, 600);
+
+  const w = container.clientWidth, h = container.clientHeight;
+  camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
+  setCamera();
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  container.appendChild(renderer.domElement);
+
+  // Grid
+  const gridHelper = new THREE.GridHelper(200, 20, 0x333333, 0x222222);
+  scene.add(gridHelper);
+
+  // Axes helper
+  const axes = new THREE.AxesHelper(30);
+  scene.add(axes);
+
+  // Lights
+  const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+  dir.position.set(80, 80, 50);
+  scene.add(dir);
+  scene.add(new THREE.AmbientLight(0x303040, 1.2));
+  const pt = new THREE.PointLight(0x39ff84, 0.6, 200);
+  pt.position.set(0, 60, 0);
+  scene.add(pt);
+
+  // Toolpath line group
+  toolpathGroup = new THREE.Group();
+  scene.add(toolpathGroup);
+
+  // Jog trail group
+  jogTrailGroup = new THREE.Group();
+  scene.add(jogTrailGroup);
+
+  // Tool indicator — asymmetric so A-axis rotation is clearly visible:
+  // vertical spindle shaft + a horizontal arm offset to one side
+  const toolGroup = new THREE.Group();
+  const toolMat   = new THREE.MeshPhongMaterial({ color: 0xffff00, emissive: 0x665500 });
+  const armMat    = new THREE.MeshPhongMaterial({ color: 0xff6600, emissive: 0x441100 });
+
+  // Vertical spindle shaft
+  const shaftGeo = new THREE.CylinderGeometry(0.7, 0.7, 12, 12);
+  const shaft    = new THREE.Mesh(shaftGeo, toolMat);
+  shaft.position.y = 6;
+  toolGroup.add(shaft);
+
+  // Tip sphere at bottom
+  const tipGeo = new THREE.SphereGeometry(1.0, 16, 16);
+  const tip    = new THREE.Mesh(tipGeo, toolMat);
+  toolGroup.add(tip);
+
+  // Horizontal arm — offset in X so rotation around Y is obvious
+  const armGeo = new THREE.CylinderGeometry(0.4, 0.4, 10, 8);
+  const arm    = new THREE.Mesh(armGeo, armMat);
+  arm.rotation.z = Math.PI / 2;   // rotate cylinder to lie along X
+  arm.position.set(5, 4, 0);      // offset from spindle center
+  toolGroup.add(arm);
+
+  // Small ball at arm tip — easy visual anchor for rotation tracking
+  const ballGeo = new THREE.SphereGeometry(1.4, 12, 12);
+  const ball    = new THREE.Mesh(ballGeo, armMat);
+  ball.position.set(10, 4, 0);
+  toolGroup.add(ball);
+
+  toolMesh = toolGroup;
+  scene.add(toolMesh);
+
+  // Mouse orbit / wheel zoom
+  const cvs = renderer.domElement;
+  cvs.addEventListener('mousedown', onMouseDown);
+  cvs.addEventListener('mousemove', onMouseMove);
+  cvs.addEventListener('mouseup',   () => { isOrbit = false; });
+  cvs.addEventListener('wheel',     onWheel, { passive: true });
+  cvs.addEventListener('contextmenu', e => e.preventDefault());
+
+  window.addEventListener('resize', () => {
+    const w2 = container.clientWidth, h2 = container.clientHeight;
+    camera.aspect = w2 / h2;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w2, h2);
+  });
+
+  animate();
+}
+
+let lastJogPoint = null;
+
+function addJogTrailPoint(pos) {
+  const p = new THREE.Vector3(pos.X, pos.Z, pos.Y);
+  if (!lastJogPoint) { lastJogPoint = p.clone(); return; }
+
+  const geo = new THREE.BufferGeometry().setFromPoints([lastJogPoint, p]);
+  const mat = new THREE.LineBasicMaterial({ color: 0xffb347, linewidth: 1 });
+  jogTrailGroup.add(new THREE.Line(geo, mat));
+  lastJogPoint = p.clone();
+}
+
+function clearJogTrail() {
+  while (jogTrailGroup.children.length) jogTrailGroup.remove(jogTrailGroup.children[0]);
+  lastJogPoint = null;
+}
+
+function updateToolPosition(pos) {
+  if (!toolMesh) return;
+  // Three.js Y-up mapping: CNC X→x, CNC Y→z, CNC Z→y
+  toolMesh.position.set(pos.X, pos.Z, pos.Y);
+  // A axis = rotation around the CNC Z axis (spindle axis = Three.js Y axis)
+  // Convert degrees to radians.
+  toolMesh.rotation.y = (pos.A ?? 0) * (Math.PI / 180);
+}
+
+function renderToolpath(toolpath) {
+  clearToolpath();
+  for (const seg of toolpath) {
+    const from = new THREE.Vector3(seg.from.X, seg.from.Z, seg.from.Y);
+    const to   = new THREE.Vector3(seg.to.X,   seg.to.Z,   seg.to.Y);
+    const geo  = new THREE.BufferGeometry().setFromPoints([from, to]);
+    const color = seg.type === 'rapid' ? 0x39ff84 : 0xff3f5b;
+    const mat  = new THREE.LineBasicMaterial({ color });
+    toolpathGroup.add(new THREE.Line(geo, mat));
+  }
+}
+
+function clearToolpath() {
+  while (toolpathGroup.children.length) toolpathGroup.remove(toolpathGroup.children[0]);
+}
+
+function setCamera() {
+  const x = orbitDist * Math.sin(orbitRot.y) * Math.cos(orbitRot.x);
+  const y = orbitDist * Math.sin(orbitRot.x);
+  const z = orbitDist * Math.cos(orbitRot.y) * Math.cos(orbitRot.x);
+  camera.position.set(x + panOffset.x, y, z + panOffset.y);
+  camera.lookAt(panOffset.x, 0, panOffset.y);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+
+/* ── ORBIT CONTROLS ─────────────────────────────────────── */
+function onMouseDown(e) {
+  isOrbit = true;
+  orbitStart = { x: e.clientX, y: e.clientY, rx: orbitRot.x, ry: orbitRot.y, px: panOffset.x, py: panOffset.y };
+  e._button = e.button;
+}
+function onMouseMove(e) {
+  if (!isOrbit || !orbitStart) return;
+  const dx = e.clientX - orbitStart.x;
+  const dy = e.clientY - orbitStart.y;
+  if (orbitStart._button === 2) {
+    // Right-drag = pan
+    panOffset.x = orbitStart.px - dx * 0.15;
+    panOffset.y = orbitStart.py + dy * 0.15;
+  } else {
+    orbitRot.y = orbitStart.ry + dx * 0.005;
+    orbitRot.x = Math.max(-1.4, Math.min(1.4, orbitStart.rx - dy * 0.005));
+  }
+  setCamera();
+}
+function onWheel(e) {
+  orbitDist = Math.max(20, Math.min(500, orbitDist + e.deltaY * 0.2));
+  setCamera();
+}
+
+/* =========================================================
+   FIRMWARE / SOFTWARE UPLOADS  (delegate to backend)
+   ========================================================= */
+async function uploadFirmware() {
+  const fi = document.getElementById('firmwareFile');
+  if (!fi.files.length) { alert('Choose a firmware file.'); return; }
+  setInfo('firmwareInfo', 'Flashing…', '');
+  try {
+    const fd = new FormData();
+    fd.append('file', fi.files[0]);
+    const r  = await fetch('/api/upload/firmware', { method: 'POST', body: fd });
+    const j  = await r.json();
+    setInfo('firmwareInfo', j.message ?? j.error, j.error ? 'err' : 'ok');
+  } catch(e) {
+    setInfo('firmwareInfo', '⚠ Backend unreachable (simulation mode)', 'err');
+  }
+}
+
+async function uploadSoftware() {
+  const fi = document.getElementById('softwareFile');
+  if (!fi.files.length) { alert('Choose an update file.'); return; }
+  setInfo('softwareInfo', 'Uploading…', '');
+  try {
+    const fd = new FormData();
+    fd.append('file', fi.files[0]);
+    const r  = await fetch('/api/update/software', { method: 'POST', body: fd });
+    const j  = await r.json();
+    setInfo('softwareInfo', j.message ?? j.error, j.error ? 'err' : 'ok');
+  } catch(e) {
+    setInfo('softwareInfo', '⚠ Backend unreachable (simulation mode)', 'err');
+  }
+}
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
+function setInfo(id, msg, cls) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'info-bar' + (cls ? ' ' + cls : '');
+}
+
+/* =========================================================
+   WEBSOCKET  (connects to backend if available)
+   In simulation-only mode, errors are silent.
+   ========================================================= */
+try {
+  const ws = new WebSocket(`ws://${window.location.host}/ws`);
+  ws.onopen = () => {
+    document.getElementById('connDot').style.background = 'var(--green)';
+    document.getElementById('headerStatus').textContent = 'CONNECTED';
+  };
+  ws.onerror = () => {
+    document.getElementById('connDot').style.background = 'var(--amber)';
+  };
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+
+      // Backend sends config on connect — apply it immediately
+      if (data.type === 'config' && data.config) {
+        applyAxisConfig({ count: data.config.count, axes: data.config.axes });
+      }
+
+      if (data.position) {
+        // Only update axes present in the response (active axes only)
+        Object.assign(simPos, data.position);
+        updateDisplay(simPos, Object.keys(data.position));
+      }
+    } catch(e) {}
+  };
+  setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'get_position' }));
+    }
+  }, 500);
+} catch(e) {}
+
+/* =========================================================
+   AXIS COUNT SELECTION
+   Source of truth: backend via POST /api/config/axes.
+   Fallback: local-only (simulation mode) if backend unreachable.
+
+   ALL_AXES: canonical order used for display.
+   activeAxes: the current subset — always set via applyAxisConfig().
+   ========================================================= */
+const ALL_AXES = ['X', 'Y', 'Z', 'A'];
+
+const AXIS_CONFIGS = {
+  2: ['X', 'Y'],
+  3: ['X', 'Y', 'Z'],
+  4: ['X', 'Y', 'Z', 'A'],
+};
+
+let activeAxes = ['X', 'Y', 'Z', 'A'];  // default until backend responds
+
+/* Apply a config object {count, axes} to the UI.
+   Called from: backend response, WS config message, or local fallback. */
+function applyAxisConfig(config) {
+  activeAxes = config.axes;
+  const count = config.count;
+
+  // Update header buttons
+  document.querySelectorAll('.axis-count-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.axes) === count);
+  });
+
+  // Show/hide axis position cards
+  document.querySelectorAll('[data-axis]').forEach(card => {
+    const ax = card.dataset.axis;
+    const visible = activeAxes.includes(ax);
+    card.style.display = visible ? '' : 'none';
+    // A card: spans 2 columns when count is odd (3 active axes = X,Y,Z row + A alone)
+    // Always span 2 for A since it's the last and sits on its own row when visible
+    if (ax === 'A' && visible) {
+      card.style.gridColumn = 'span 2';
+    }
+  });
+
+  // Show/hide jog sections (Z, A, B have data-axis-section wrappers)
+  document.querySelectorAll('[data-axis-section]').forEach(section => {
+    section.style.display = activeAxes.includes(section.dataset.axisSection) ? '' : 'none';
+  });
+
+  // Zero simPos for inactive axes so stale values don't persist
+  for (const ax of ALL_AXES) {
+    if (!activeAxes.includes(ax)) simPos[ax] = 0;
+  }
+  updateDisplay(simPos);
+
+  document.getElementById('headerStatus').textContent =
+    `${count}-AXIS  [${activeAxes.join(' ')}]`;
+}
+
+/* Called by the header buttons.
+   Tries to POST to backend; falls back to local-only on failure. */
+async function setAxisCount(count) {
+  stopJog();
+
+  try {
+    const res = await fetch('/api/config/axes', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ count }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      console.warn('Axis config rejected by backend:', err.error);
+      // Still apply locally so the UI stays usable in simulation mode
+      applyAxisConfig({ count, axes: AXIS_CONFIGS[count] ?? ALL_AXES });
+      return;
+    }
+
+    const data = await res.json();
+    // Backend returns {count, axes, position}
+    applyAxisConfig({ count: data.count, axes: data.axes });
+    if (data.position) {
+      Object.assign(simPos, data.position);
+      updateDisplay(simPos, data.axes);
+    }
+
+  } catch (_) {
+    // Backend not reachable — simulation mode, apply locally
+    applyAxisConfig({ count, axes: AXIS_CONFIGS[count] ?? ALL_AXES });
+  }
+}
+
+/* Fetch config from backend on page load. */
+async function syncAxisConfigFromBackend() {
+  try {
+    const res = await fetch('/api/config/axes');
+    if (!res.ok) return;
+    const data = await res.json();
+    applyAxisConfig({ count: data.count, axes: data.axes });
+  } catch (_) {
+    // Backend offline — keep default 4-axis
+    applyAxisConfig({ count: 4, axes: ALL_AXES });
+  }
+}
+
+
+initPreview();
+syncAxisConfigFromBackend();  // GET /api/config/axes → applyAxisConfig(); falls back to 4-axis local
+updateDisplay(simPos);
+</script>
+</body>
+</html>
