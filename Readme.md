@@ -1,86 +1,93 @@
-# CNC Control System - Project #3
+# ⬡ Interface de Contrôle CNC — Projet #3
 
-Simple web-based CNC control interface for Raspberry Pi 5.
+Interface de contrôle CNC accessible depuis un navigateur, tournant sur un **Raspberry Pi 5** et communiquant avec un **contrôleur de mouvement FPGA** via une interface de commande abstraite.
 
-## Setup
+---
 
-1. Install dependencies:
-bash
-pip install -r requirements.txt
+## Stack technique
 
+| Couche | Technologie |
+|---|---|
+| Plateforme | Raspberry Pi 5 (Wi-Fi, port 8080) |
+| Backend | Python 3.11 — FastAPI + Uvicorn |
+| Frontend | HTML / CSS / JavaScript vanilla |
+| Prévisualisation 3D | Three.js r128 (WebGL) |
+| Contrôle mouvement | FPGA (interface SPI/UART abstraite) |
 
-2. Create static directory and move index.html:
-bash
-mkdir static
-mv index.html static/
+---
 
+## Fonctionnalités
 
-3. Run server:
-bash
-python server.py
+- **Jog manuel** — maintenir un bouton d'axe pour déplacer en continu (X, Y, Z, A)
+- **Axes configurables** — basculer entre 2 / 3 / 4 axes en temps réel ; le backend applique la configuration active
+- **Chargement G-code & éditeur** — charger un fichier ou saisir du code directement ; les deux affichent un aperçu 3D du parcours outil
+- **Lecture animée** — exécuter le G-code avec contrôle de vitesse (0.1× → 10×), mise en pause et arrêt
+- **Visualiseur 3D** — déplacements rapides en vert, déplacements en avance en rouge, trace de jog en orange ; orbite / pan / zoom
+- **Rotation axe A** — l'indicateur outil tourne visiblement dans la vue 3D lorsque A se déplace
+- **Mise à jour firmware FPGA** — charger des fichiers `.bit` / `.mcs` et déclencher le flash depuis l'interface
+- **Mise à jour logicielle du Pi** — charger une archive de mise à jour depuis l'interface
 
+---
 
-4. Open browser:
+## Structure du projet
 
-http://<raspberry-pi-ip>:8080
+```
+cnc-control/
+  main.py            ← Serveur FastAPI — API, WebSocket, parseur G-code, interface FPGA
+  static/
+    index.html       ← Frontend complet (fichier unique)
+  uploads/           ← Créé automatiquement au premier lancement
+  test_4axis.gcode   ← Programme de test couvrant les 4 axes
+```
 
+---
 
-## Features
+## Démarrage rapide
 
-- *Manual Jogging*: X, Y, Z, A, B axes with adjustable step size
-- *Position Display*: Real-time axis positions
-- *G-code Upload*: Upload and preview toolpaths in 3D
-- *G-code Execution*: Send parsed commands to FPGA
-- *FPGA Firmware Update*: Flash .bit/.mcs files
-- *Software Update*: Update Raspberry Pi software
+```bash
+# 1. Installer les dépendances
+pip install fastapi uvicorn python-multipart
 
-## Architecture
+# 2. Lancer le serveur
+python main.py
 
-### Backend (server.py)
-- FastAPI web server on port 8080
-- REST endpoints for file uploads and control
-- WebSocket for real-time position updates
-- Abstract FPGA interface (FPGAController class)
-- G-code parser (GCodeParser class)
+# 3. Ouvrir dans le navigateur
+http://<adresse-ip-raspberry>:8080
+```
 
-### Frontend (index.html)
-- WebGL 3D preview using Three.js
-- WebSocket client for real-time updates
-- Manual jog controls
-- File upload interfaces
+---
 
-### FPGA Communication
-The FPGAController class provides abstract methods:
-- send_command(command: dict) - Send motion/control commands
-- get_position() - Get current logical position
-- flash_firmware(filepath: str) - Trigger firmware update
+## API
 
-*Replace these methods with actual FPGA communication protocol.*
+| Méthode | Endpoint | Description |
+|---|---|---|
+| GET | `/api/config/axes` | Récupérer le nombre d'axes actifs et la liste |
+| POST | `/api/config/axes` | Définir le nombre d'axes `{"count": 2\|3\|4}` |
+| GET | `/api/position` | Position actuelle (axes actifs uniquement) |
+| POST | `/api/jog` | Jog pas à pas `{"axis": "X", "distance": 1.0}` |
+| POST | `/api/reset` | Remettre à zéro tous les axes actifs |
+| POST | `/api/upload/gcode` | Charger un fichier G-code |
+| POST | `/api/run` | Exécuter le fichier chargé `{"filename": "piece.gcode"}` |
+| POST | `/api/upload/firmware` | Charger un bitfile FPGA (`.bit` / `.mcs`) |
+| WS | `/ws` | Synchronisation temps réel position + configuration |
 
-## API Endpoints
+---
 
-- POST /api/upload/gcode - Upload G-code file
-- POST /api/upload/firmware - Upload FPGA firmware
-- POST /api/update/software - Upload software update
-- POST /api/jog - Manual jog command
-- GET /api/position - Get current position
-- POST /api/run - Execute uploaded G-code
-- WS /ws - WebSocket for real-time updates
+## Interface FPGA
 
-## File Structure
+Toute communication matérielle est isolée dans `FPGAController` dans `main.py`. L'implémentation actuelle simule le mouvement en logiciel. Pour connecter le vrai matériel, remplacer le corps de `send_command()` par votre appel SPI / UART — le reste du système ne change pas.
 
+```python
+def send_command(self, command: dict):
+    # command = {"type": "jog", "axis": "X", "distance": 1.0}
+    # command = {"type": "linear_move", "target": {...}, "feedrate": 500}
+    pass  # ← remplacer par l'appel matériel réel
+```
 
-.
-├── server.py          # Backend server
-├── requirements.txt   # Python dependencies
-├── static/
-│   └── index.html    # Web interface
-└── uploads/          # Uploaded files (auto-created)
+> **Note :** Le Raspberry Pi ne garantit pas le temps réel. Le FPGA doit gérer l'exécution du mouvement en temps réel.
 
+---
 
-## Notes
+## Fichier de test
 
-- FPGA communication is abstracted - implement actual protocol in FPGAController
-- Position updates are logical, not real-time guaranteed
-- No authentication - local network use only
-- G-code parser handles G0/G1 linear moves (extend as needed)
+`test_4axis.gcode` couvre : carré XY, paliers Z, rotation complète de l'axe A (0°→360°), mouvement 4 axes simultané, et un zigzag avec rotation. Le charger via l'onglet Upload pour vérifier tous les axes.
